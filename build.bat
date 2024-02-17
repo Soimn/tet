@@ -15,7 +15,7 @@ if "%1" neq "" (
 	goto end
 )
 
-cl /nologo /Od /Oi /Zo /Z7 /RTC1 /GS- /W3 ..\src\tet.c /link /fixed /subsystem:windows /out:tet.exe /pdb:tet.pdb /incremental:no /opt:icf /opt:ref libvcruntime.lib user32.lib gdi32.lib
+cl /nologo /Od /Oi /Zo /Z7 /RTC1 /GS- /W3 ..\src\platform.c /link /fixed /subsystem:windows /out:tet.exe /pdb:tet.pdb /incremental:no /opt:icf /opt:ref libvcruntime.lib user32.lib gdi32.lib winmm.lib
 
 copy ..\spritesheet.bmp . >nul
 
