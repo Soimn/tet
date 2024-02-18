@@ -27,6 +27,7 @@ typedef enum State_Kind
 	State_Spawning,
 	State_Dropping,
 	State_Clearing,
+	State_Lost,
 } State_Kind;
 
 typedef enum Tetromino_Kind
@@ -361,9 +362,6 @@ Init(Game_State* state)
 void
 Tick(Game_State* state, Action_Kind input)
 {
-	V2S tet_move  = V2S(0, 0);
-	u8 tet_orient = state->live_tet_orient;
-
 	bool should_flash = false;
 
 	if (state->state == State_Spawning)
@@ -434,6 +432,9 @@ Tick(Game_State* state, Action_Kind input)
 	}
 	else if (state->state == State_Dropping)
 	{
+		V2S tet_move  = V2S(0, 0);
+		u8 tet_orient = state->live_tet_orient;
+
 		if (state->drop_timer++ == 32)
 		{
 			state->drop_timer = 0;
@@ -484,7 +485,6 @@ Tick(Game_State* state, Action_Kind input)
 		if (tet_move.x != 0 || tet_move.y != 0)
 		{
 			bool move_x_valid = true;
-			bool move_y_valid = true;
 			for (umm j = 0; j < TET_HEIGHT; ++j)
 			{
 				for (umm i = 0; i < TET_WIDTH; ++i)
@@ -499,37 +499,67 @@ Tick(Game_State* state, Action_Kind input)
 						{
 							move_x_valid = false;
 						}
-						
-						if (board_pos.y + tet_move.y >= BOARD_HEIGHT ||
-								board_pos.y + tet_move.y >= 0 && state->board[board_pos.y + tet_move.y][board_pos.x] != 0)
-						{
-							move_y_valid = false;
-							should_lock  = true;
-						}
 					}
 				}
 			}
 
 			if (move_x_valid) state->live_tet_pos.x += tet_move.x;
-			if (move_y_valid) state->live_tet_pos.y += tet_move.y;
-		}
 
-		if (should_lock)
-		{
-			state->clear_vector = 0xF;
+			bool move_y_valid = true;
 			for (umm j = 0; j < TET_HEIGHT; ++j)
 			{
 				for (umm i = 0; i < TET_WIDTH; ++i)
 				{
-					state->board[state->live_tet_pos.y+j][state->live_tet_pos.x+i] |= Tetrominos[state->live_tet_kind][state->live_tet_orient][j][i];
-				}
-
-				for (umm i = 0; i < BOARD_WIDTH; ++i)
-				{
-					if (state->board[state->live_tet_pos.y+j][i] == 0)
+					if (Tetrominos[state->live_tet_kind][state->live_tet_orient][j][i] == 0) continue;
+					else
 					{
-						state->clear_vector &= ~(1 << j);
-						break;
+						V2S board_pos = V2S_Add(state->live_tet_pos, V2S(i, j));
+
+						if (board_pos.y + tet_move.y >= BOARD_HEIGHT ||
+								board_pos.y + tet_move.y >= 0 && state->board[board_pos.y + tet_move.y][board_pos.x] != 0)
+						{
+							move_y_valid = false;
+						}
+					}
+				}
+			}
+
+			if (move_y_valid) state->live_tet_pos.y += tet_move.y;
+			else              should_lock = (tet_move.y != 0);
+		}
+
+		if (should_lock)
+		{
+			if (state->live_tet_pos.y + TetrominoFirstNonEmptyLine[state->live_tet_kind][state->live_tet_orient] < 0)
+			{
+				state->state = State_Lost;
+			}
+			else
+			{
+				state->clear_vector = 0;
+				for (umm j = 0; j < TET_HEIGHT; ++j)
+				{
+					if (state->live_tet_pos.y+j < 0) continue;
+					else
+					{
+						for (umm i = 0; i < TET_WIDTH; ++i)
+						{
+							state->board[state->live_tet_pos.y+j][state->live_tet_pos.x+i] |= Tetrominos[state->live_tet_kind][state->live_tet_orient][j][i];
+						}
+
+						if (state->live_tet_pos.y+j < BOARD_HEIGHT)
+						{
+							bool line_filled = true;
+							for (umm i = 0; i < BOARD_WIDTH; ++i)
+							{
+								if (state->board[state->live_tet_pos.y+j][i] == 0)
+								{
+									line_filled = false;
+								}
+							}
+
+							if (line_filled) state->clear_vector |= (1 << j);
+						}
 					}
 				}
 			}
@@ -542,11 +572,13 @@ Tick(Game_State* state, Action_Kind input)
 			else                          state->state = State_Spawning;
 		}
 	}
-	else ASSERT(!"Invalid game state");
 
 	BlitGame(state);
 
-	if (state->state == State_Dropping) BlitTet(V2S_Add(V2S(BOARD_X+1, BOARD_Y+1), state->live_tet_pos), state->live_tet_kind, state->live_tet_orient);
+	if (state->state == State_Dropping)
+	{
+		BlitTet(V2S_Add(V2S(BOARD_X+1, BOARD_Y+1), state->live_tet_pos), state->live_tet_kind, state->live_tet_orient);
+	}
 
 	if (should_flash)
 	{
@@ -557,5 +589,10 @@ Tick(Game_State* state, Action_Kind input)
 				BlitSprite(V2S_Add(BOARD_ORIGIN, V2S(1 + i, 1 + j)), V2S(6, 4));
 			}
 		}
+	}
+
+	if (state->state == State_Lost)
+	{
+		BlitString(V2S_Add(BOARD_ORIGIN, V2S(BOARD_WIDTH/2-3,BOARD_HEIGHT/2-3)), "YOU LOST");
 	}
 }
