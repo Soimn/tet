@@ -92,6 +92,78 @@ struct
 } PlatformState = {0};
 
 void
+BlitSprite(V2S pos, V2S sprite)
+{
+	ASSERT(pos.x >= 0 && pos.x < SCREEN_WIDTH/SPRITESHEET_CELL_SIZE);
+	ASSERT(pos.y >= 0 && pos.y < SCREEN_WIDTH/SPRITESHEET_CELL_SIZE);
+	ASSERT(sprite.x >= 0 && sprite.x < SPRITESHEET_WIDTH);
+	ASSERT(sprite.y >= 0 && sprite.y < SPRITESHEET_HEIGHT);
+
+	for (umm j = 0; j < SPRITESHEET_CELL_SIZE; ++j)
+	{
+		for (umm i = 0; i < SPRITESHEET_CELL_SIZE; ++i)
+		{
+			u32 color = PlatformState.spritesheet[(sprite.y*SPRITESHEET_CELL_SIZE + j)*SPRITESHEET_WIDTH*SPRITESHEET_CELL_SIZE + (sprite.x*SPRITESHEET_CELL_SIZE + i)];
+
+			PlatformState.backbuffer[(pos.y*SPRITESHEET_CELL_SIZE + j)*SCREEN_WIDTH + (pos.x*SPRITESHEET_CELL_SIZE + i)] = color;
+		}
+	}
+}
+
+void
+BlitChar(V2S pos, u8 c)
+{
+	ASSERT(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-');
+
+	umm index = ((u8)(c - 0x30) < 10 ? 26 + (c-0x30) : (c == '-' ? 36 : ((c&0x1F) - 1)));
+
+	BlitSprite(pos, V2S(index%SPRITESHEET_WIDTH, index/SPRITESHEET_WIDTH));
+}
+
+void
+BlitFrame(V2S origin, V2S dim)
+{
+	BlitSprite(V2S(origin.x +       0, origin.y +       0), V2S(1, 5));
+	BlitSprite(V2S(origin.x + dim.x+1, origin.y +       0), V2S(3, 5));
+	BlitSprite(V2S(origin.x +       0, origin.y + dim.y+1), V2S(0, 5));
+	BlitSprite(V2S(origin.x + dim.x+1, origin.y + dim.y+1), V2S(2, 5));
+
+	for (umm i = 1; i < dim.x+1; ++i)
+	{
+		BlitSprite(V2S(origin.x + i, origin.y +       0), V2S(7, 5));
+		BlitSprite(V2S(origin.x + i, origin.y + dim.y+1), V2S(5, 5));
+	}
+
+	for (umm i = 1; i < dim.y+1; ++i)
+	{
+		BlitSprite(V2S(origin.x +       0, origin.y + i), V2S(4, 5));
+		BlitSprite(V2S(origin.x + dim.x+1, origin.y + i), V2S(6, 5));
+	}
+}
+
+void
+BlitString(V2S origin, char* string)
+{
+	for (umm i = 0; string[i] != 0; ++i)
+	{
+		if (string[i] == ' ') continue;
+		BlitChar(V2S(origin.x + i, origin.y), string[i]);
+	}
+}
+
+void
+BlitInt(V2S origin, umm integer, umm length)
+{
+	for (umm i = length-1; i < length; --i)
+	{
+		BlitChar(V2S(origin.x + i, origin.y), '0' + (integer%10));
+		integer /= 10;
+	}
+}
+
+#include "tet.c"
+
+void
 RefitToMonitor()
 {
   PlatformState.monitor = MonitorFromWindow(PlatformState.window, MONITOR_DEFAULTTOPRIMARY);
@@ -179,9 +251,6 @@ Wndproc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
   {
     PAINTSTRUCT paint = {0};
     HDC dc = BeginPaint(window, &paint);
-
-    // TODO
-
     EndPaint(window, &paint);
     result = 0;
   }
@@ -189,79 +258,6 @@ Wndproc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 
   return result;
 }
-
-void
-BlitSprite(V2S pos, V2S sprite)
-{
-	ASSERT(pos.x >= 0 && pos.x < SCREEN_WIDTH/SPRITESHEET_CELL_SIZE);
-	ASSERT(pos.y >= 0 && pos.y < SCREEN_WIDTH/SPRITESHEET_CELL_SIZE);
-	ASSERT(sprite.x >= 0 && sprite.x < SPRITESHEET_WIDTH);
-	ASSERT(sprite.y >= 0 && sprite.y < SPRITESHEET_HEIGHT);
-
-	for (umm j = 0; j < SPRITESHEET_CELL_SIZE; ++j)
-	{
-		for (umm i = 0; i < SPRITESHEET_CELL_SIZE; ++i)
-		{
-			u32 color = PlatformState.spritesheet[(sprite.y*SPRITESHEET_CELL_SIZE + j)*SPRITESHEET_WIDTH*SPRITESHEET_CELL_SIZE + (sprite.x*SPRITESHEET_CELL_SIZE + i)];
-
-			PlatformState.backbuffer[(pos.y*SPRITESHEET_CELL_SIZE + j)*SCREEN_WIDTH + (pos.x*SPRITESHEET_CELL_SIZE + i)] = color;
-		}
-	}
-}
-
-void
-BlitChar(V2S pos, u8 c)
-{
-	ASSERT(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-');
-
-	umm index = ((u8)(c - 0x30) < 10 ? 26 + (c-0x30) : (c == '-' ? 36 : ((c&0x1F) - 1)));
-
-	BlitSprite(pos, V2S(index%SPRITESHEET_WIDTH, index/SPRITESHEET_WIDTH));
-}
-
-void
-BlitFrame(V2S origin, V2S dim)
-{
-	BlitSprite(V2S(origin.x +       0, origin.y +       0), V2S(1, 5));
-	BlitSprite(V2S(origin.x + dim.x+1, origin.y +       0), V2S(3, 5));
-	BlitSprite(V2S(origin.x +       0, origin.y + dim.y+1), V2S(0, 5));
-	BlitSprite(V2S(origin.x + dim.x+1, origin.y + dim.y+1), V2S(2, 5));
-
-	for (umm i = 1; i < dim.x+1; ++i)
-	{
-		BlitSprite(V2S(origin.x + i, origin.y +       0), V2S(7, 5));
-		BlitSprite(V2S(origin.x + i, origin.y + dim.y+1), V2S(5, 5));
-	}
-
-	for (umm i = 1; i < dim.y+1; ++i)
-	{
-		BlitSprite(V2S(origin.x +       0, origin.y + i), V2S(4, 5));
-		BlitSprite(V2S(origin.x + dim.x+1, origin.y + i), V2S(6, 5));
-	}
-}
-
-void
-BlitString(V2S origin, char* string)
-{
-	for (umm i = 0; string[i] != 0; ++i)
-	{
-		if (string[i] == ' ') continue;
-		BlitChar(V2S(origin.x + i, origin.y), string[i]);
-	}
-}
-
-void
-BlitInt(V2S origin, umm integer, umm length)
-{
-	for (umm i = length-1; i < length; --i)
-	{
-		BlitChar(V2S(origin.x + i, origin.y), '0' + (integer%10));
-		integer /= 10;
-	}
-}
-
-#include "tet.c"
-
 int
 wWinMain(HINSTANCE instance, HINSTANCE pre_instance, PWSTR cmd_line, int show_cmd)
 {
@@ -336,6 +332,7 @@ wWinMain(HINSTANCE instance, HINSTANCE pre_instance, PWSTR cmd_line, int show_cm
 
   for (bool running = true;;)
   {
+		Action_Kind input = Action_None;
     for (MSG msg; PeekMessageW(&msg, 0, 0, 0, PM_REMOVE); )
     {
       if (msg.message == WM_QUIT)
@@ -349,13 +346,26 @@ wWinMain(HINSTANCE instance, HINSTANCE pre_instance, PWSTR cmd_line, int show_cm
       {
         ToggleFullscreen();
       }
+			else if (msg.message == WM_KEYDOWN)
+			{
+				switch (msg.wParam)
+				{
+					case VK_SPACE: input = Action_HardDrop;  break;
+					case VK_DOWN:  input = Action_SoftDrop;  break;
+					case VK_LEFT:  input = Action_MoveLeft;  break;
+					case VK_RIGHT: input = Action_MoveRight; break;
+					case 'X':      input = Action_RotateCW;  break;
+					case 'Z':      input = Action_RotateCCW; break;
+					default: Wndproc(PlatformState.window, msg.message, msg.wParam, msg.lParam); break;
+				}
+			}
       else Wndproc(PlatformState.window, msg.message, msg.wParam, msg.lParam);
     }
 		if (!running) break;
 
 		for (umm i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; ++i) PlatformState.backbuffer[i] = 0;
 
-		Tick(&game_state);
+		Tick(&game_state, input);
 
     HDC dc = GetDC(PlatformState.window);
 
