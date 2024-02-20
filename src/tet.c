@@ -5,7 +5,7 @@
 #define BOARD_Y 4
 #define BOARD_ORIGIN V2S(BOARD_X, BOARD_Y)
 #define TET_SPAWN_X 3
-#define TET_SPAWN_Y -2
+#define TET_SPAWN_Y -4
 #define TET_SPAWN V2S(TET_SPAWN_X, TET_SPAWN_Y)
 #define TET_WIDTH 4
 #define TET_HEIGHT 4
@@ -52,7 +52,6 @@ typedef struct Game_State
 	u32 lcg_state;
 	Tetromino_Kind next_kind;
 	u8 clear_vector;
-	u8 inv_stack_height;
 	u8 drop_timer;
 	u8 clear_timer;
 	u8 live_tet_kind;
@@ -348,7 +347,6 @@ Init(Game_State* state)
 		.lcg_state        = 1337,
 		.next_kind        = 0,
 		.drop_timer       = 0,
-		.inv_stack_height = 0,
 		.clear_timer      = 0,
 		.live_tet_kind    = 0,
 		.live_tet_orient  = 0,
@@ -376,25 +374,24 @@ Tick(Game_State* state, Action_Kind input)
 	}
 	else if (state->state == State_Clearing)
 	{
-		if (state->clear_timer >= BOARD_WIDTH/2)
+		if (state->clear_timer >= BOARD_WIDTH)
 		{
 			state->lines += __popcnt(state->clear_vector);
 
-			for (umm y = state->live_tet_pos.y;;)
+			for (umm move_dst = state->live_tet_pos.y;;)
 			{
 				while ((state->clear_vector&1) == 0)
 				{
 					state->clear_vector >>= 1;
-					++y;
+					++move_dst;
 				}
 
 				u8 move = __popcnt(state->clear_vector & ~(state->clear_vector+1));
 
 				ASSERT(move != 0);
-				y += move-1;
-				ASSERT(y >= state->live_tet_pos.y && y < state->live_tet_pos.y + TET_HEIGHT);
+				ASSERT(move_dst >= state->live_tet_pos.y && move_dst < state->live_tet_pos.y + TET_HEIGHT);
 
-				for (smm j = y-move; j >= 0; --j)
+				for (smm j = move_dst-1; j >= 0; --j)
 				{
 					for (umm i = 0; i < BOARD_WIDTH; ++i)
 					{
@@ -402,8 +399,9 @@ Tick(Game_State* state, Action_Kind input)
 					}
 				}
 
-				state->inv_stack_height += move;
-				state->clear_vector    >>= move;
+				move_dst += move;
+
+				state->clear_vector >>= move;
 
 				if (state->clear_vector == 0) break;
 				else                          continue;
@@ -416,13 +414,13 @@ Tick(Game_State* state, Action_Kind input)
 		}
 		else
 		{
-			ASSERT(BOARD_WIDTH % 2 == 0 && state->clear_timer < BOARD_WIDTH/2);
+			ASSERT(BOARD_WIDTH % 2 == 0 && state->clear_timer < BOARD_WIDTH);
 			for (umm i = 0; i < TET_HEIGHT; ++i)
 			{
 				if ((state->clear_vector & (1 << i)) != 0)
 				{
-					state->board[state->live_tet_pos.y+i][(BOARD_WIDTH/2-1) - state->clear_timer] = 0;
-					state->board[state->live_tet_pos.y+i][BOARD_WIDTH/2     + state->clear_timer] = 0;
+					state->board[state->live_tet_pos.y+i][(BOARD_WIDTH/2-1) - state->clear_timer/2] = 0;
+					state->board[state->live_tet_pos.y+i][BOARD_WIDTH/2     + state->clear_timer/2] = 0;
 				}
 			}
 
@@ -564,8 +562,6 @@ Tick(Game_State* state, Action_Kind input)
 				}
 			}
 
-			u8 inv_height = state->live_tet_pos.y + TetrominoFirstNonEmptyLine[state->live_tet_kind][state->live_tet_orient];
-			if (inv_height < state->inv_stack_height) state->inv_stack_height = inv_height;
 			state->drop_timer = 0;
 
 			if (state->clear_vector != 0) state->state = State_Clearing;
