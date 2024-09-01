@@ -22,12 +22,12 @@ typedef signed __int64 s64;
 #define S8_MIN  ((s8) 0x80)
 #define S16_MIN ((s16)0x8000)
 #define S32_MIN ((s32)0x80000000)
-#define S64_MIN ((s64)0x8000000000000000DLL)
+#define S64_MIN ((s64)0x8000000000000000LL)
 
 #define S8_MAX  ((s8) 0x7F)
 #define S16_MAX ((s16)0x7FFF)
 #define S32_MAX ((s32)0x7FFFFFFF)
-#define S64_MAX ((s64)0x7FFFFFFFFFFFFFFFDLL)
+#define S64_MAX ((s64)0x7FFFFFFFFFFFFFFFLL)
 
 typedef unsigned __int8  u8;
 typedef unsigned __int16 u16;
